@@ -67,9 +67,13 @@ class FollowingPlugin(BeetsPlugin):
 
             missing = sorted(missing, key=operator.itemgetter('year', 'title'))
 
-            for item in missing:
-                print("Missing album: {} - {} ({})".format(
-                    item["artist"], item["title"], item["year"]))
+            if missing:
+                print("Missing albums:")
+                for item in missing:
+                    print("{} - {} ({})".format(item["artist"], item["title"],
+                                                item["year"]))
+            else:
+                print("No missing albums")
 
     def filter_artists(self, lib, query):
         mb_albumartist_ids = set()
