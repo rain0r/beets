@@ -45,48 +45,46 @@ class FollowingPlugin(BeetsPlugin):
         """Retrieve and apply info from the autotagger for albums matched by
         query and their items.
         """
-        mb_albumartist_ids = self.filter_artists(lib, query)
+        albumartists = self.filter_artists(lib, query)
 
-        for mb_albumartist_id in mb_albumartist_ids:
-            local_albums = self.get_local_albums(lib, mb_albumartist_id)
-            released_albums = self.get_released_albums(mb_albumartist_id)
+        for albumartist in albumartists:
+            missing = []
+            local_albums = self.get_local_albums(lib, albumartist["id"])
+            released_albums = self.get_released_albums(albumartist["id"])
             local_ids = [item.mb_releasegroupid for item in local_albums]
 
-            missing = []
             for album in released_albums:
                 exists = album["id"] in local_ids
                 if not exists:
-                    try:
-                        artist = album['artist-credit'][0]['artist']['name']
-                    except KeyError:
-                        artist = "Could not extract artist"
-                    album['artist'] = artist
+                    album['artist'] = albumartist["artist"]
                     album["year"] = album["first-release-date"].split("-")[0]
                     missing.append(album)
-
             missing = sorted(missing, key=operator.itemgetter('year', 'title'))
-
             if missing:
-                print("Missing albums:")
+                print("Missing albums for artist {}:".format(
+                    albumartist["artist"]))
                 for item in missing:
                     print("{} - {} ({})".format(item["artist"], item["title"],
                                                 item["year"]))
             else:
-                print("No missing albums")
+                print("No missing albums for artist {}".format(
+                    albumartist["artist"]))
 
     def filter_artists(self, lib, query):
-        mb_albumartist_ids = set()
+        mb_albumartist_ids = []
 
         # Process matching albums.
         for album in lib.albums(query):
-            album_formatted = format(album)
-
             if not album.mb_albumid:
                 self._log.info(u'Skipping album with no mb_albumid: {0}',
-                               album_formatted)
+                               format(album))
                 continue
-            mb_albumartist_ids.add(album['mb_albumartistid'])
-        return mb_albumartist_ids
+            mb_albumartist_ids.append({
+                'artist': album['albumartist_sort'],
+                'id': album['mb_albumartistid']
+            })
+        sort_artists = list({v['id']: v for v in mb_albumartist_ids}.values())
+        return sort_artists
 
     def get_local_albums(self, lib, mb_albumartist_id):
         q = u'mb_albumartistid::%s' % mb_albumartist_id
@@ -98,7 +96,5 @@ class FollowingPlugin(BeetsPlugin):
 
     def get_released_albums(self, mb_albumartist_id):
         releases = musicbrainzngs.browse_release_groups(
-            artist=mb_albumartist_id,
-            release_type='album',
-            includes=['artist-credits'])
+            artist=mb_albumartist_id, release_type='album')
         return releases['release-group-list']
