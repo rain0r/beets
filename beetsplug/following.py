@@ -96,5 +96,11 @@ class FollowingPlugin(BeetsPlugin):
 
     def get_released_albums(self, mb_albumartist_id):
         releases = musicbrainzngs.browse_release_groups(
-            artist=mb_albumartist_id, release_type='album')
-        return releases['release-group-list']
+            artist=mb_albumartist_id, release_type=['album',])
+        filtered = []
+        for release in releases['release-group-list']:
+            if release["type"] != "Album":
+                continue
+            filtered.append(release)
+        # return releases['release-group-list']
+        return filtered
