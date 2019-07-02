@@ -94,7 +94,8 @@ class FollowingPlugin(BeetsPlugin):
         return local_albums
 
     def get_released_albums(self, mb_albumartist_id):
-        releases = musicbrainzngs.browse_release_groups(artist=mb_albumartist_id,
-                                                        release_type='album',
-                                                        includes=['artist-credits'])
+        releases = musicbrainzngs.browse_release_groups(
+            artist=mb_albumartist_id,
+            release_type='album',
+            includes=['artist-credits'])
         return releases['release-group-list']
