@@ -14,7 +14,8 @@
 """Update library's tags using MusicBrainz.
 """
 from __future__ import division, absolute_import, print_function
-
+from operator import itemgetter
+from collections import OrderedDict
 import musicbrainzngs
 import operator
 
@@ -46,32 +47,35 @@ class FollowingPlugin(BeetsPlugin):
         query and their items.
         """
         albumartists = self.filter_artists(lib, query)
+        sorted_artists = sorted(albumartists.keys(),
+                                key=lambda x: x.lower(),
+                                reverse=True)
 
         for albumartist in albumartists:
+            mb_id = albumartists[albumartist]
             missing = []
-            local_albums = self.get_local_albums(lib, albumartist["id"])
-            released_albums = self.get_released_albums(albumartist["id"])
+            local_albums = self.get_local_albums(lib, mb_id)
+            released_albums = self.get_released_albums(mb_id)
             local_ids = [item.mb_releasegroupid for item in local_albums]
 
             for album in released_albums:
                 exists = album["id"] in local_ids
                 if not exists:
-                    album['artist'] = albumartist["artist"]
+                    album['artist'] = albumartist
                     album["year"] = album["first-release-date"].split("-")[0]
                     missing.append(album)
             missing = sorted(missing, key=operator.itemgetter('year', 'title'))
             if missing:
-                print("Missing albums for artist {}:".format(
-                    albumartist["artist"]))
+                print("Missing albums for artist {}:".format(albumartist))
                 for item in missing:
-                    print("{} - {} ({})".format(item["artist"], item["title"],
+                    print("\t{} - {} ({})".format(item["artist"], item["title"],
                                                 item["year"]))
             else:
-                print("No missing albums for artist {}".format(
-                    albumartist["artist"]))
+                print("No missing albums for artist {}".format(albumartist))
 
     def filter_artists(self, lib, query):
         mb_albumartist_ids = []
+        sorted_artists = {}
 
         # Process matching albums.
         for album in lib.albums(query):
@@ -79,12 +83,13 @@ class FollowingPlugin(BeetsPlugin):
                 self._log.info(u'Skipping album with no mb_albumid: {0}',
                                format(album))
                 continue
-            mb_albumartist_ids.append({
-                'artist': album['albumartist_sort'],
-                'id': album['mb_albumartistid']
-            })
-        sort_artists = list({v['id']: v for v in mb_albumartist_ids}.values())
-        return sort_artists
+            # mb_albumartist_ids.append({
+            #     'artist': album['albumartist_sort'],
+            #     'id': album['mb_albumartistid']
+            # })
+            sorted_artists[
+                album['albumartist_sort']] = album['mb_albumartistid']
+        return sorted_artists
 
     def get_local_albums(self, lib, mb_albumartist_id):
         q = u'mb_albumartistid::%s' % mb_albumartist_id
@@ -96,7 +101,9 @@ class FollowingPlugin(BeetsPlugin):
 
     def get_released_albums(self, mb_albumartist_id):
         releases = musicbrainzngs.browse_release_groups(
-            artist=mb_albumartist_id, release_type=['album',])
+            artist=mb_albumartist_id, release_type=[
+                'album',
+            ])
         filtered = []
         for release in releases['release-group-list']:
             if release["type"] != "Album":
