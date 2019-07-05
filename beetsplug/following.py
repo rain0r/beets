@@ -67,7 +67,7 @@ class FollowingPlugin(BeetsPlugin):
                 exists = album["id"] in local_ids
                 if not exists:
                     album['artist'] = albumartist
-                    album["year"] = album["first-release-date"].split("-")[0]
+                    album["year"] = self.extract_release_year(album)
 
                     if after > 0 and album["year"] <= after:
                         continue
@@ -113,3 +113,9 @@ class FollowingPlugin(BeetsPlugin):
                 continue
             filtered.append(release)
         return filtered
+
+    def extract_release_year(self, album):
+        try:
+            return int(album["first-release-date"].split("-")[0])
+        except (KeyError, ValueError):
+            return 0
