@@ -32,7 +32,12 @@ class FollowingPlugin(BeetsPlugin):
     def commands(self):
         cmd = ui.Subcommand('following',
                             help=u'update metadata from musicbrainz')
-        cmd.parser.add_format_option()
+        cmd.parser.add_option(u'-A',
+                              u'--after',
+                              action='store',
+                              type="int",
+                              help=u'show albums after this year',
+                              default=0)
         cmd.func = self.func
         return [cmd]
 
@@ -40,9 +45,9 @@ class FollowingPlugin(BeetsPlugin):
         """Command handler for the following function.
         """
         query = ui.decargs(args)
-        self.albums(lib, query)
+        self.albums(lib, query, opts.after)
 
-    def albums(self, lib, query):
+    def albums(self, lib, query, after):
         """Retrieve and apply info from the autotagger for albums matched by
         query and their items.
         """
@@ -63,15 +68,17 @@ class FollowingPlugin(BeetsPlugin):
                 if not exists:
                     album['artist'] = albumartist
                     album["year"] = album["first-release-date"].split("-")[0]
+
+                    if after > 0 and album["year"] <= after:
+                        continue
+
                     missing.append(album)
             missing = sorted(missing, key=operator.itemgetter('year', 'title'))
             if missing:
                 print("Missing albums for artist {}:".format(albumartist))
                 for item in missing:
-                    print("\t{} - {} ({})".format(item["artist"], item["title"],
-                                                item["year"]))
-            else:
-                print("No missing albums for artist {}".format(albumartist))
+                    print("\t{} - {} ({})".format(item["artist"],
+                                                  item["title"], item["year"]))
 
     def filter_artists(self, lib, query):
         mb_albumartist_ids = []
@@ -83,10 +90,6 @@ class FollowingPlugin(BeetsPlugin):
                 self._log.info(u'Skipping album with no mb_albumid: {0}',
                                format(album))
                 continue
-            # mb_albumartist_ids.append({
-            #     'artist': album['albumartist_sort'],
-            #     'id': album['mb_albumartistid']
-            # })
             sorted_artists[
                 album['albumartist_sort']] = album['mb_albumartistid']
         return sorted_artists
@@ -109,5 +112,4 @@ class FollowingPlugin(BeetsPlugin):
             if release["type"] != "Album":
                 continue
             filtered.append(release)
-        # return releases['release-group-list']
         return filtered
